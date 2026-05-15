@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Pytest
+.pytest_cache/
+pytest-cache-files-*/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Локальні секрети — ніколи не пушимо у Git!
+*.env.local
+secrets.json

@@ -1,0 +1,44 @@
+# ----------------------------------------------------------------------
+# render.yaml — Infrastructure-as-Code конфіг для Render.com.
+#
+# Render прочитає цей файл автоматично, коли ми зайдемо у Dashboard
+# і створимо "Blueprint" з GitHub-репо. Можна також усе клікнути руками
+# у веб-інтерфейсі (Create → Web Service) — цей файл просто автоматизує
+# той самий набір налаштувань.
+#
+# Що ми описуємо:
+#   • один Web Service на безкоштовному тарифі ("free")
+#   • runtime=python (Render сам поставить Python 3.11+)
+#   • buildCommand — команда, яку Render запустить при білді
+#   • startCommand — команда, яку Render запустить для старту контейнера
+#
+# ВАЖЛИВО: параметр $PORT Render виставляє автоматично в env.
+# Uvicorn ОБОВ'ЯЗКОВО має слухати саме цей порт (а не фіксований 8000),
+# інакше Render не зможе прокинути зовнішній трафік і деплой зависне
+# на "Port scan timeout".
+#
+# MONGO_URL і MONGO_DB_NAME не захардкожені у файлі — їх ми виставимо
+# вручну в Render Dashboard як Environment Variables (sync: false),
+# бо це чутливі дані (connection string до MongoDB Atlas).
+# ----------------------------------------------------------------------
+services:
+  - type: web
+    name: library-api
+    runtime: python
+    plan: free
+    region: frankfurt              # найближчий до України регіон Render
+    branch: main                   # Render автоматично редеплоїть на push у main
+    rootDir: samostiyna_robota/library_api
+
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+    healthCheckPath: /             # Render пінгуватиме / щоб вважати сервіс живим
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: MONGO_URL
+        sync: false                # встановлюємо вручну у Dashboard (секрет!)
+      - key: MONGO_DB_NAME
+        value: library_db

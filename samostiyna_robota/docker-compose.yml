@@ -1,0 +1,57 @@
+# ----------------------------------------------------------------------
+# docker-compose.yml — піднімає два контейнери:
+#   1) mongo — MongoDB 7 з постійним volume для даних
+#   2) api   — наш FastAPI-застосунок (збирається з Dockerfile)
+#
+# Запуск:
+#   docker compose up --build
+#
+# API буде доступне на http://localhost:8000/docs
+# Mongo буде доступне ззовні на localhost:27017 (для MongoDB Compass)
+# ----------------------------------------------------------------------
+services:
+
+  mongo:
+    image: mongo:7
+    container_name: library_mongo
+    restart: unless-stopped
+    environment:
+      # Ці змінні Mongo підхоплює при першому старті і створює
+      # root-користувача з такими credentials.
+      MONGO_INITDB_ROOT_USERNAME: mongo_admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: library_db
+    volumes:
+      # Постійне сховище — дані не зникають між перезапусками контейнера.
+      - mongo_data:/data/db
+    ports:
+      # Відкриваємо 27017 на хост — щоб можна було підключитись MongoDB Compass.
+      - "27017:27017"
+    healthcheck:
+      # Перевіряємо що mongod справді піднявся і відповідає на ping.
+      # Це потрібно, щоб api-контейнер не стартанув раніше за БД.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: library_api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      # Усередині Docker-мережі Mongo доступний по імені сервісу "mongo".
+      # authSource=admin бо користувача створено саме в admin-базі.
+      MONGO_URL: mongodb://mongo_admin:password@mongo:27017/?authSource=admin
+      MONGO_DB_NAME: library_db
+    ports:
+      - "8000:8000"
+
+volumes:
+  mongo_data:
