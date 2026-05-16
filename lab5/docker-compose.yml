@@ -1,0 +1,9 @@
+services:
+  api:
+    build: .
+    container_name: library_flask_api
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
