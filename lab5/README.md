@@ -1,69 +1,68 @@
 # Library API — Лабораторна №5
 
-REST API для бібліотеки книг на **Flask + Flask-RESTful** з автогенерованою
-**Swagger / OpenAPI 2.0** документацією через **flasgger**.
+REST API для керування книгами, побудований на Flask + Flask-RESTful.
+Swagger документація генерується автоматично через flasgger.
 
-## Технологічний стек
+## Стек
 
-| Компонент | Призначення |
-|-----------|-------------|
-| Flask 3.x | Мікро веб-фреймворк |
-| Flask-RESTful | Class-Based Views для REST-ресурсів (`Resource`) |
-| flasgger | Автогенерація Swagger UI з YAML-описів у docstring |
-| marshmallow | Валідація вхідних даних |
-| pytest | Тестування |
+- Flask 3.x + Flask-RESTful — веб-фреймворк і CBV для ресурсів
+- flasgger — Swagger UI з YAML-описів у docstring
+- marshmallow — валідація
+- pytest — тести
 
-## Структура
+## Структура проєкту
 
 ```
 library_api/
-├── main.py                  # Entry point: Flask app + Swagger config
-├── api/books.py             # Flask-RESTful Resources + flasgger docstrings
-├── schemas/book.py          # marshmallow-схеми для валідації
-├── services/book_service.py # Бізнес-логіка
-├── repository/              # In-memory сховище
-│   └── book_repository.py
-├── models/book.py           # Доменна модель Book (dataclass)
-├── tests/                   # pytest тести
+├── main.py                  # точка входу, конфіг Swagger
+├── api/books.py             # ендпоінти (BookListResource, BookResource)
+├── schemas/book.py          # marshmallow схеми
+├── services/book_service.py # логіка
+├── repository/book_repository.py  # in-memory сховище
+├── models/book.py           # модель Book
+├── tests/
 ├── requirements.txt
 ├── Dockerfile
 └── docker-compose.yml
 ```
 
-## Запуск локально
+## Як запустити
 
-```bash
-cd library_api
-python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
-```
-
-Відкрити:
-- **Swagger UI:** http://127.0.0.1:5000/apidocs/
-- **OpenAPI JSON:** http://127.0.0.1:5000/apispec.json
-- **API base:** http://127.0.0.1:5000/api/v1/books
-
-## Запуск через Docker
-
+**Через Docker (рекомендую, бо з локальним pip були проблеми на mac):**
 ```bash
 docker compose up --build
+```
+
+Порт 5000 на mac зайнятий системою, тому в docker-compose змінила на 5001.
+
+Swagger UI: http://localhost:5001/apidocs  
+API: http://localhost:5001/api/v1/books
+
+**Локально:**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+bash install.sh
+python main.py
 ```
 
 ## Тести
 
 ```bash
-pytest
+python3 -m pytest -v
+```
+
+або через docker:
+```bash
+docker compose run --rm api pytest -v
 ```
 
 ## Ендпоінти
 
 | Метод | URL | Опис |
 |-------|-----|------|
-| GET | `/api/v1/books` | Список усіх книг |
-| POST | `/api/v1/books` | Створити книгу |
-| GET | `/api/v1/books/<id>` | Отримати книгу за id |
-| PUT | `/api/v1/books/<id>` | Повне оновлення книги |
-| DELETE | `/api/v1/books/<id>` | Видалити книгу |
-
-Усі ендпоінти описані прямо в Swagger UI з прикладами запитів і відповідей.
+| GET | `/api/v1/books` | всі книги |
+| POST | `/api/v1/books` | додати книгу |
+| GET | `/api/v1/books/<id>` | книга за id |
+| PUT | `/api/v1/books/<id>` | оновити |
+| DELETE | `/api/v1/books/<id>` | видалити |
