@@ -26,26 +26,6 @@ library_api/
 └── docker-compose.yml
 ```
 
-## Як запустити
-
-**Через Docker (рекомендую, бо з локальним pip були проблеми на mac):**
-```bash
-docker compose up --build
-```
-
-Порт 5000 на mac зайнятий системою, тому в docker-compose змінила на 5001.
-
-Swagger UI: http://localhost:5001/apidocs  
-API: http://localhost:5001/api/v1/books
-
-**Локально:**
-```bash
-python -m venv .venv
-source .venv/bin/activate
-bash install.sh
-python main.py
-```
-
 ## Тести
 
 ```bash
