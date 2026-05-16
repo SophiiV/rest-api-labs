@@ -66,3 +66,4 @@ docker compose run --rm api pytest -v
 | GET | `/api/v1/books/<id>` | книга за id |
 | PUT | `/api/v1/books/<id>` | оновити |
 | DELETE | `/api/v1/books/<id>` | видалити |
+ 
