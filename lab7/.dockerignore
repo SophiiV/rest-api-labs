@@ -1,0 +1,15 @@
+# Що НЕ копіювати в Docker-образ (щоб образ був легким і чистим).
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+env/
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+tests/
+*.md
