@@ -1,43 +1,54 @@
-"""
-ми перевіряємо:
-  - title: обовʼязкове, рядок 1..200 символів
-  - author: обовʼязкове, рядок 1..120 символів
-  - year: обовʼязкове, ціле число у діапазоні [1450; 2100]
-  - description: необовʼязкове, рядок до 1000 символів
-"""
-from marshmallow import Schema, fields, validate
+from __future__ import annotations
+
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from models.book import BookStatus
 
 
-class BookCreateSchema(Schema):
-    """Схема для створення/повного оновлення книги (POST і PUT)."""
-
-    title = fields.String(
-        required=True,
-        validate=validate.Length(min=1, max=200),
-        error_messages={"required": "Поле 'title' є обовʼязковим."},
+class BookBase(BaseModel):
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Назва книги",
+        examples=["1984"],
     )
-    author = fields.String(
-        required=True,
-        validate=validate.Length(min=1, max=120),
-        error_messages={"required": "Поле 'author' є обовʼязковим."},
+    author: str = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+        description="Автор книги",
+        examples=["George Orwell"],
     )
-    year = fields.Integer(
-        required=True,
-        validate=validate.Range(min=1450, max=2100),
-        error_messages={"required": "Поле 'year' є обовʼязковим."},
+    description: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Короткий опис книги (опційно)",
+        examples=["Антиутопія про тоталітарне суспільство."],
     )
-    description = fields.String(
-        required=False,
-        load_default=None,
-        validate=validate.Length(max=1000),
+    year: int = Field(
+        ...,
+        ge=1450,
+        le=2100,
+        description="Рік випуску книги",
+        examples=[1949],
+    )
+    status: BookStatus = Field(
+        default=BookStatus.AVAILABLE,
+        description="Статус книги: 'available' або 'borrowed'",
     )
 
 
-class BookSchema(Schema):
-    """Схема відповіді (вихідне представлення книги)."""
+class BookCreate(BookBase):
+    pass
 
-    id = fields.Integer()
-    title = fields.String()
-    author = fields.String()
-    year = fields.Integer()
-    description = fields.String(allow_none=True)
+
+class BookRead(BookBase):
+    id: UUID = Field(
+        ...,
+        description="Унікальний ідентифікатор книги (UUID)",
+    )
+
+    model_config = ConfigDict(from_attributes=True)

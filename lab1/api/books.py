@@ -1,62 +1,104 @@
+from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
-from marshmallow import ValidationError
+from typing import Optional
+from uuid import UUID
 
-from schemas.book import BookCreateSchema, BookSchema
+from fastapi import APIRouter, HTTPException, Query, Response, status
+
+from models.book import BookSortField, BookStatus
+from schemas.book import BookCreate, BookRead
 from services.book_service import book_service
 
-
-books_bp = Blueprint("books", __name__)
-
-
-book_create_schema = BookCreateSchema()
-book_response_schema = BookSchema()
-books_response_schema = BookSchema(many=True)
+router = APIRouter(prefix="/books", tags=["books"])
 
 
-@books_bp.get("/books")
-def list_books():
-    books = book_service.list_books()
-    return jsonify(books_response_schema.dump(books)), 200
+@router.get(
+    "",
+    response_model=list[BookRead],
+    status_code=status.HTTP_200_OK,
+    summary="Отримати всі книги",
+    description=(
+        "Повертає список усіх книг. "
+        "Можна фільтрувати по `author` та `status`, "
+        "сортувати по `title` або `year` у напрямку `asc` / `desc`."
+    ),
+)
+async def list_books(
+    author: Optional[str] = Query(
+        default=None,
+        description="Фільтр по автору (точний збіг, регістр не враховується).",
+    ),
+    book_status: Optional[BookStatus] = Query(
+        default=None,
+        alias="status",
+        description="Фільтр по статусу: 'available' або 'borrowed'.",
+    ),
+    sort_by: Optional[BookSortField] = Query(
+        default=None,
+        description="Поле для сортування: 'title' або 'year'.",
+    ),
+    order: str = Query(
+        default="asc",
+        pattern="^(asc|desc)$",
+        description="Напрямок сортування: 'asc' або 'desc'.",
+    ),
+) -> list[BookRead]:
+    books = await book_service.list_books(
+        author=author,
+        status=book_status,
+        sort_by=sort_by.value if sort_by else None,
+        order=order,
+    )
+    return [BookRead(**b) for b in books]
 
 
-@books_bp.post("/books")
-def create_book():
-    json_data = request.get_json(silent=True) or {}
-    try:
-        data = book_create_schema.load(json_data)
-    except ValidationError as err:
-        return jsonify({"errors": err.messages}), 400
-
-    book = book_service.create_book(data)
-    return jsonify(book_response_schema.dump(book)), 201
-
-
-@books_bp.get("/books/<int:book_id>")
-def get_book(book_id: int):
-    book = book_service.get_book(book_id)
+@router.get(
+    "/{book_id}",
+    response_model=BookRead,
+    status_code=status.HTTP_200_OK,
+    responses={404: {"description": "Книгу з таким ID не знайдено"}},
+    summary="Отримати книгу за ID",
+)
+async def get_book(book_id: UUID) -> BookRead:
+    book = await book_service.get_book(book_id)
     if book is None:
-        return jsonify({"message": f"Book with id={book_id} not found"}), 404
-    return jsonify(book_response_schema.dump(book)), 200
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Книгу з id={book_id} не знайдено",
+        )
+    return BookRead(**book)
 
 
-@books_bp.put("/books/<int:book_id>")
-def update_book(book_id: int):
-    json_data = request.get_json(silent=True) or {}
-    try:
-        data = book_create_schema.load(json_data)
-    except ValidationError as err:
-        return jsonify({"errors": err.messages}), 400
+@router.post(
+    "",
+    response_model=BookRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Додати нову книгу",
+    description=(
+        "Створює нову книгу. ID генерується сервером як UUID4. "
+        "Поле `status` опційне — за замовчуванням `available`."
+    ),
+)
+async def create_book(payload: BookCreate) -> BookRead:
+    data = payload.model_dump()
+    if isinstance(data.get("status"), BookStatus):
+        data["status"] = data["status"].value
+    created = await book_service.create_book(data)
+    return BookRead(**created)
 
-    updated = book_service.update_book(book_id, data)
-    if updated is None:
-        return jsonify({"message": f"Book with id={book_id} not found"}), 404
-    return jsonify(book_response_schema.dump(updated)), 200
 
-
-@books_bp.delete("/books/<int:book_id>")
-def delete_book(book_id: int):
-    deleted = book_service.delete_book(book_id)
+@router.delete(
+    "/{book_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"description": "Книгу з таким ID не знайдено"}},
+    summary="Видалити книгу",
+    description="Видаляє книгу за UUID. Повертає 204 при успіху, 404 якщо книги немає.",
+)
+async def delete_book(book_id: UUID) -> Response:
+    deleted = await book_service.delete_book(book_id)
     if not deleted:
-        return jsonify({"message": f"Book with id={book_id} not found"}), 404
-    return "", 204
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Книгу з id={book_id} не знайдено",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

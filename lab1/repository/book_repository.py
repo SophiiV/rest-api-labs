@@ -1,55 +1,76 @@
+from __future__ import annotations
 
-from itertools import count
-from threading import Lock
+import asyncio
 from typing import Optional
+from uuid import UUID, uuid4
+
+from models.book import BookStatus
 
 
 class BookRepository:
- 
     def __init__(self) -> None:
-        self._books: dict[int, dict] = {}
-        self._id_counter = count(start=1)
-        self._lock = Lock()
+        self._books: list[dict] = []
+        self._lock = asyncio.Lock()
+
+    async def list_all(
+        self,
+        *,
+        author: Optional[str] = None,
+        status: Optional[BookStatus] = None,
+        sort_by: Optional[str] = None,
+        order: str = "asc",
+    ) -> list[dict]:
+        async with self._lock:
+            result = list(self._books)
+
+        if author is not None:
+            author_lower = author.strip().lower()
+            result = [b for b in result if b["author"].lower() == author_lower]
+
+        if status is not None:
+            status_value = status.value if isinstance(status, BookStatus) else status
+            result = [b for b in result if b["status"] == status_value]
+
+        if sort_by in {"title", "year"}:
+            reverse = order == "desc"
+            key = (lambda b: b[sort_by].lower()) if sort_by == "title" else (lambda b: b[sort_by])
+            result.sort(key=key, reverse=reverse)
+
+        return result
+
+    async def get_by_id(self, book_id: UUID) -> Optional[dict]:
+        async with self._lock:
+            for book in self._books:
+                if book["id"] == book_id:
+                    return dict(book)
+        return None
+
+    async def create(self, data: dict) -> dict:
+        async with self._lock:
+            new_book = {
+                "id": uuid4(),
+                "title": data["title"],
+                "author": data["author"],
+                "description": data.get("description"),
+                "year": data["year"],
+                "status": data.get("status", BookStatus.AVAILABLE.value),
+            }
+            if isinstance(new_book["status"], BookStatus):
+                new_book["status"] = new_book["status"].value
+            self._books.append(new_book)
+            return dict(new_book)
+
+    async def delete(self, book_id: UUID) -> bool:
+        async with self._lock:
+            for i, book in enumerate(self._books):
+                if book["id"] == book_id:
+                    del self._books[i]
+                    return True
+        return False
+
+    async def _reset(self) -> None:
+        async with self._lock:
+            self._books.clear()
 
 
-    def list_all(self) -> list[dict]:
-      
-        with self._lock:
-            return list(self._books.values())
-
-    def get_by_id(self, book_id: int) -> Optional[dict]:
-        
-        with self._lock:
-            return self._books.get(book_id)
-
-
-    def create(self, data: dict) -> dict:
-        """Створити нову книгу."""
-        with self._lock:
-            new_id = next(self._id_counter)
-            book = {"id": new_id, **data}
-            self._books[new_id] = book
-            return book
-
-    def update(self, book_id: int, data: dict) -> Optional[dict]:
-        """Повністю замінити поля книги
-        """
-        with self._lock:
-            if book_id not in self._books:
-                return None
-            updated = {"id": book_id, **data}
-            self._books[book_id] = updated
-            return updated
-
-    def delete(self, book_id: int) -> bool:
-        """Видалити книгу. Повертає True якщо видалено, False якщо її не було.
-
-        Видалення за id ідемпотентне: повторний DELETE поверне 404,
-        стан системи при цьому не змінюється — як і вимагає REST.
-        """
-        with self._lock:
-            return self._books.pop(book_id, None) is not None
-
-
-# імітує "базу" впродовж життя процесу.
 book_repository = BookRepository()

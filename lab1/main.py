@@ -1,27 +1,31 @@
+import uvicorn
+from fastapi import FastAPI
 
-from flask import Flask
+from api.books import router as books_router
 
-from api.books import books_bp
+app = FastAPI(
+    title="Library API",
+    description="REST API для бібліотеки книг. Лабораторна робота №1.",
+    version="1.0.0",
+)
 
-
-def create_app() -> Flask:
-
-    app = Flask(__name__)
-    app.json.ensure_ascii = False
-
-    app.register_blueprint(books_bp, url_prefix="/api/v1")
-
-    @app.get("/")
-    def index():
-
-        return {"status": "ok", "service": "Library API", "version": "1.0.0"}, 200
-
-    return app
+app.include_router(books_router, prefix="/api/v1")
 
 
-app = create_app()
+@app.get("/", tags=["health"])
+async def root() -> dict:
+    return {
+        "status": "ok",
+        "service": "Library API",
+        "version": "1.0.0",
+        "docs": "/docs",
+    }
 
 
 if __name__ == "__main__":
-
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=True,
+    )
