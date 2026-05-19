@@ -1,0 +1,308 @@
+openapi: 3.0.3
+
+
+info:
+  title: Library API (Mock)
+  version: "8.0.0"
+  description: |
+    Мок-версія REST API бібліотеки книг.
+    Підіймається через Stoplight Prism, не має жодного реального коду
+    бекенда — лише ця специфікація + Docker.
+    Усі відповіді — це `example`-блоки, описані в цьому ж файлі.
+  contact:
+    name: Василюк Софія
+    email: muzikaeng@gmail.com
+
+servers:
+  - url: http://localhost:4010
+    description: Локальний Prism mock (за замовчуванням)
+
+tags:
+  - name: books
+    description: Операції з книгами
+
+paths:
+
+  /books:
+    get:
+      tags: [books]
+      operationId: listBooks
+      summary: Отримати список книг (з cursor-пагінацією)
+      description: |
+        Повертає сторінку книг. Підтримує фільтри по статусу і автору,
+        сортування по `title` або `year`, та cursor-пагінацію.
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+          description: Скільки книг повернути (1-100).
+          example: 10
+        - in: query
+          name: cursor
+          schema: { type: string }
+          description: Токен наступної сторінки. Не передавай для першої сторінки.
+          example: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wNC0yOSJ9"
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [available, issued]
+          description: Фільтр по статусу.
+          example: available
+        - in: query
+          name: author
+          schema: { type: string }
+          description: Часткове співпадіння по автору (case-insensitive).
+          example: "Шевченко"
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [title, year]
+          description: Поле для сортування.
+          example: year
+      responses:
+        "200":
+          description: Сторінка з книгами
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CursorPaginatedBooks'
+              example:
+                items:
+                  - id: "11111111-1111-1111-1111-111111111111"
+                    title: "Кобзар"
+                    author: "Тарас Шевченко"
+                    description: "Збірка поезій українського класика"
+                    status: "available"
+                    year: 1840
+                  - id: "22222222-2222-2222-2222-222222222222"
+                    title: "Лісова пісня"
+                    author: "Леся Українка"
+                    description: "Драма-феєрія"
+                    status: "issued"
+                    year: 1911
+                  - id: "33333333-3333-3333-3333-333333333333"
+                    title: "Тіні забутих предків"
+                    author: "Михайло Коцюбинський"
+                    description: "Повість про карпатське життя"
+                    status: "available"
+                    year: 1911
+                limit: 10
+                next_cursor: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wNC0yOVQxMjowMDowMCJ9"
+                has_more: true
+        "400":
+          description: Поганий cursor або невалідні параметри
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "Invalid cursor format" }
+
+    post:
+      tags: [books]
+      operationId: createBook
+      summary: Створити нову книгу
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookCreate'
+            example:
+              title: "Захар Беркут"
+              author: "Іван Франко"
+              description: "Історична повість"
+              status: "available"
+              year: 1883
+      responses:
+        "201":
+          description: Книгу створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+              example:
+                id: "44444444-4444-4444-4444-444444444444"
+                title: "Захар Беркут"
+                author: "Іван Франко"
+                description: "Історична повість"
+                status: "available"
+                year: 1883
+        "400":
+          description: Помилка валідації
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "year must be between 1000 and 2100" }
+
+  /books/{book_id}:
+    parameters:
+      - in: path
+        name: book_id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Ідентифікатор книги (UUID)
+        example: "11111111-1111-1111-1111-111111111111"
+
+    get:
+      tags: [books]
+      operationId: getBookById
+      summary: Отримати книгу за ID
+      responses:
+        "200":
+          description: Знайдена книга
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+              example:
+                id: "11111111-1111-1111-1111-111111111111"
+                title: "Кобзар"
+                author: "Тарас Шевченко"
+                description: "Збірка поезій українського класика"
+                status: "available"
+                year: 1840
+        "404":
+          description: Книгу не знайдено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "Книгу з id=11111111-1111-1111-1111-111111111111 не знайдено" }
+
+    put:
+      tags: [books]
+      operationId: updateBook
+      summary: Повністю оновити книгу
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookCreate' }
+            example:
+              title: "Кобзар (нове видання)"
+              author: "Тарас Шевченко"
+              description: "Збірка поезій українського класика, перевидання 2025"
+              status: "issued"
+              year: 1840
+      responses:
+        "200":
+          description: Книгу оновлено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookResponse' }
+              example:
+                id: "11111111-1111-1111-1111-111111111111"
+                title: "Кобзар (нове видання)"
+                author: "Тарас Шевченко"
+                description: "Збірка поезій українського класика, перевидання 2025"
+                status: "issued"
+                year: 1840
+        "404":
+          description: Книгу не знайдено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "Книгу з id=... не знайдено" }
+
+    delete:
+      tags: [books]
+      operationId: deleteBook
+      summary: Видалити книгу
+      responses:
+        "204":
+          description: Книгу видалено (тіло відповіді відсутнє)
+        "404":
+          description: Книгу не знайдено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { detail: "Книгу з id=... не знайдено" }
+
+components:
+  schemas:
+
+    BookStatus:
+      type: string
+      enum: [available, issued]
+      description: |
+        Стан книги в бібліотеці:
+          - `available` — на полиці, можна взяти
+          - `issued`    — видана читачу
+
+    BookCreate:
+      type: object
+      required: [title, author, year]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Кобзар"
+        author:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Тарас Шевченко"
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: "Збірка поезій українського класика"
+        status:
+          $ref: '#/components/schemas/BookStatus'
+        year:
+          type: integer
+          minimum: 1000
+          maximum: 2100
+          example: 1840
+
+    BookResponse:
+      type: object
+      required: [id, title, author, status, year]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "11111111-1111-1111-1111-111111111111"
+        title:
+          type: string
+          example: "Кобзар"
+        author:
+          type: string
+          example: "Тарас Шевченко"
+        description:
+          type: string
+          nullable: true
+          example: "Збірка поезій українського класика"
+        status:
+          $ref: '#/components/schemas/BookStatus'
+        year:
+          type: integer
+          example: 1840
+
+    CursorPaginatedBooks:
+      type: object
+      required: [items, limit, has_more]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookResponse'
+        limit:
+          type: integer
+          example: 10
+        next_cursor:
+          type: string
+          nullable: true
+          example: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wNC0yOVQxMjowMDowMCJ9"
+        has_more:
+          type: boolean
+          example: true
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: "Книгу не знайдено"
